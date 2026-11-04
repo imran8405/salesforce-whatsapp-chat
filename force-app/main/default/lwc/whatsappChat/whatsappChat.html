@@ -1,0 +1,156 @@
+<template>
+    <div class="chat-container">
+
+        <!-- HEADER -->
+        <div class="chat-header">
+            <div class="header-left">
+                <div class="avatar">
+                    <span class="avatar-initial">{avatarInitial}</span>
+                </div>
+                <div class="header-text">
+                    <div class="contact-name">{contactName}</div>
+                    <div class="contact-number">{contactNumber}</div>
+                </div>
+            </div>
+
+            <div class="header-right">
+                <lightning-icon icon-name="utility:call" class="wa-icon circle-icon" size="xx-small"
+                    alternative-text="Call"></lightning-icon>
+                <lightning-icon icon-name="utility:video" class="wa-icon circle-icon" size="xx-small"
+                    alternative-text="Video"></lightning-icon>
+                <lightning-icon icon-name="utility:threedots_vertical" class="wa-icon" size="xx-small"
+                    alternative-text="Menu" onclick={toggleMenu}></lightning-icon>
+
+                <template lwc:if={showMenu}>
+                    <div class="menu-popup">
+                        <div class="menu-item" onclick={handleSendTemplate}>Send hello_world template</div>
+                        <div class="menu-item danger" onclick={handleDeleteChat}>Delete Chat</div>
+                    </div>
+                </template>
+            </div>
+        </div>
+
+        <!-- MESSAGES -->
+        <div class="messages-area" onscroll={handleScroll}>
+            <template lwc:if={isEmpty}>
+                <div class="empty-hint">
+                    No messages yet. Send "Hi" from WhatsApp to the business number, then type here.
+                </div>
+            </template>
+
+            <template for:each={messages} for:item="msg">
+                <div key={msg.id} class={msg.rowClass}>
+                    <div class={msg.bubbleClass}>
+
+                        <!-- ATTACHMENT -->
+                        <template lwc:if={msg.isImage}>
+                            <a href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <img class="media-image" src={msg.fileUrl} alt={msg.fileName} />
+                            </a>
+                        </template>
+                        <template lwc:elseif={msg.isVideo}>
+                            <video class="media-video" src={msg.fileUrl} controls preload="metadata"></video>
+                        </template>
+                        <template lwc:elseif={msg.isAudio}>
+                            <audio class="media-audio" src={msg.fileUrl} controls preload="metadata"></audio>
+                        </template>
+                        <template lwc:elseif={msg.isDocument}>
+                            <a class="media-doc" href={msg.fileUrl} target="_blank" rel="noopener noreferrer">
+                                <lightning-icon icon-name="doctype:attachment" size="small"
+                                    alternative-text="File"></lightning-icon>
+                                <span class="media-doc-name">{msg.fileName}</span>
+                            </a>
+                        </template>
+                        <template lwc:elseif={msg.isMediaPending}>
+                            <div class="media-note">Loading attachment…</div>
+                        </template>
+                        <template lwc:elseif={msg.isMediaFailed}>
+                            <div class="media-note" title={msg.errorDetail}>
+                                ⚠ {msg.mediaNote}
+                                <template lwc:if={msg.canRetry}>
+                                    <a class="media-retry" data-id={msg.id} onclick={handleRetryDownload}>Retry</a>
+                                </template>
+                            </div>
+                        </template>
+
+                        <!-- TEXT / CAPTION -->
+                        <template lwc:if={msg.hasText}>
+                            <div class="bubble-text">{msg.text}</div>
+                        </template>
+
+                        <div class="time">
+                            {msg.time}
+                            <template lwc:if={msg.isOutbound}>
+                                <template lwc:if={msg.isSent}>&nbsp;✓</template>
+                                <template lwc:elseif={msg.isDelivered}>&nbsp;✓✓</template>
+                                <template lwc:elseif={msg.isRead}>&nbsp;<span class="blue-tick">✓✓</span></template>
+                                <template lwc:elseif={msg.isFailed}>&nbsp;<span class="failed-mark" title={msg.errorDetail}>⚠ Failed</span></template>
+                            </template>
+                        </div>
+                        <div class={msg.tailClass}></div>
+                    </div>
+                </div>
+            </template>
+        </div>
+
+        <!-- SCROLL DOWN BUTTON -->
+        <template lwc:if={showScrollDownButton}>
+            <div class="scroll-down-btn" onclick={scrollDownManually}>⬇ {unreadLabel}</div>
+        </template>
+
+        <!-- TYPING INDICATOR -->
+        <template lwc:if={showTypingIndicator}>
+            <div class="typing-indicator">
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-dot"></span>
+                <span class="typing-text">typing...</span>
+            </div>
+        </template>
+
+        <!-- FOOTER -->
+        <div class="chat-footer">
+            <div class="footer-icons">
+                <lightning-icon icon-name="utility:emoji" alternative-text="Emoji" class="wa-footer-icon"
+                    size="x-small" onclick={toggleEmojiPicker}></lightning-icon>
+                <lightning-icon icon-name="utility:attach" alternative-text="Attach a file"
+                    class="wa-footer-icon" size="x-small" onclick={toggleAttachPanel}></lightning-icon>
+            </div>
+
+            <input type="text" class="chat-input" placeholder="Type a message"
+                value={inputText} oninput={handleInput} onkeydown={handleKeyDown} />
+
+            <button class="send-btn" onclick={sendMessage} title="Send" disabled={isSending}>➤</button>
+        </div>
+
+        <!-- ATTACH PANEL -->
+        <template lwc:if={showAttachPanel}>
+            <div class="attach-popup">
+                <lightning-file-upload
+                    label="Send a file"
+                    name="waAttachment"
+                    record-id={recordId}
+                    accept={acceptedFormats}
+                    onuploadfinished={handleUploadFinished}
+                    multiple>
+                </lightning-file-upload>
+                <div class="attach-hint">
+                    Text in the message box is sent as the caption. Photos up to 5 MB,
+                    video and audio up to 16 MB, documents up to 100 MB.
+                </div>
+            </div>
+        </template>
+
+        <!-- EMOJI PICKER -->
+        <template lwc:if={showEmojiPicker}>
+            <div class="emoji-popup">
+                <div class="emoji-grid">
+                    <template for:each={emojiList} for:item="emo">
+                        <span key={emo} class="emoji-item" data-emoji={emo} onclick={handleEmojiClick}>{emo}</span>
+                    </template>
+                </div>
+            </div>
+        </template>
+
+    </div>
+</template>
